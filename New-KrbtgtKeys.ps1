@@ -13,6 +13,8 @@
 ### --> If Applicable Describe What Should Be/Work Different And Explain Why/How.
 ### --> Please Add Screendumps.
 ###
+param([Int32]$mode=0)
+$auto=0
 $ver
 <#
 .SYNOPSIS
@@ -1233,17 +1235,38 @@ Logging "                                          *                            
 Logging "                                          **********************************************************" "MAINHEADER"
 Logging ""
 
-### Providing Information About What The Script Is Capable Of And How The Script Works
-Logging ""
-Logging "Do you want to read information about the script, its functions, its behavior and the impact? [YES | NO]: " "ACTION-NO-NEW-LINE"
-$yesOrNo = $null
-$yesOrNo = Read-Host
-If ($yesOrNo.ToUpper() -ne "NO") {
-	$yesOrNo = "YES"
+### Check if I am PDC
+$whoamI = ([System.Net.Dns]::GetHostByName(($env:computerName))).Hostname
+$whoisPDC = Get-ADDomain | select-object pdcemulator | select -expand pdcemulator
+If ($whoamI -ne $whoisPDC) {
+	Logging "  --> I am not the PDC - Exit Script..." "REMARK"
+	Logging ""
+	
+	EXIT
 }
-Logging ""
-Logging "  --> Chosen: $yesOrNo" "REMARK"
-Logging ""
+
+
+### Providing Information About What The Script Is Capable Of And How The Script Works
+If ($mode -eq 12120151 -or $mode -eq 12120152 -or $mode -eq 12120153 -or $mode -eq 12120154) {
+	Logging ""
+	Logging "  --> Auto mode invoked, skipping display of script information." "REMARK"
+	$yesOrNo = $null
+	$yesOrNo = "NO"
+	Logging ""
+	Logging ""
+} Else {
+	Logging ""
+	Logging "Do you want to read information about the script, its functions, its behavior and the impact? [YES | NO]: " "ACTION-NO-NEW-LINE"
+	$yesOrNo = $null
+	$yesOrNo = Read-Host
+	If ($yesOrNo.ToUpper() -ne "NO") {
+		$yesOrNo = "YES"
+	}
+	Logging ""
+	Logging "  --> Chosen: $yesOrNo" "REMARK"
+	Logging ""
+}
+
 If ($yesOrNo.ToUpper() -ne "NO") {
 	Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
 	Logging "INFORMATION ABOUT THE SCRIPT, ITS FUNCTIONS AND BEHAVIOR, AND IMPACT TO THE ENVIRONMENT - PLEASE READ CAREFULLY..." "HEADER"
@@ -1530,30 +1553,66 @@ If ($poshModuleGPO -eq "NotAvailable") {
 }
 Logging ""
 
-### Display And Selecting The Mode Of Operation
-Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
-Logging "SELECT THE MODE OF OPERATION..." "HEADER"
-Logging ""
-Logging "Which mode of operation do you want to execute?"
-Logging ""
-Logging " - 1 - Informational Mode (No Changes At All)"
-Logging ""
-Logging " - 2 - Simulation Mode (Temporary Canary Object Created, No Password Reset!)"
-Logging ""
-Logging " - 3 - Simulation Mode - Use KrbTgt TEST/BOGUS Accounts (Password Will Be Reset Once!)"
-Logging ""
-Logging " - 4 - Real Reset Mode - Use KrbTgt PROD/REAL Accounts (Password Will Be Reset Once!)"
-Logging ""
-Logging ""
-Logging " - 8 - Create TEST KrbTgt Accounts"
-Logging " - 9 - Cleanup TEST KrbTgt Accounts"
-Logging ""
-Logging ""
-Logging " - 0 - Exit Script"
-Logging ""
-Logging "Please specify the mode of operation: " "ACTION-NO-NEW-LINE"
-$modeOfOperationNr = Read-Host
-Logging ""
+If ($mode -eq 12120151) {
+	Logging ""
+	Logging "  --> Auto mode 1 invoked." "REMARK"
+	$modeOfOperationNr = $null
+	$modeOfOperationNr = 1
+	$auto = 1
+	Logging ""
+}
+If ($mode -eq 12120152) {
+	Logging ""
+	Logging "  --> Auto mode 2 invoked." "REMARK"
+	$modeOfOperationNr = $null
+	$modeOfOperationNr = 2
+	$auto = 1
+	Logging ""
+}
+If ($mode -eq 12120153) {
+	Logging ""
+	Logging "  --> Auto mode 3 invoked." "REMARK"
+	$modeOfOperationNr = $null
+	$modeOfOperationNr = 3
+	$auto = 1
+	Logging ""
+}
+If ($mode -eq 12120154) {
+	Logging ""
+	Logging "  --> Auto mode 4 invoked." "REMARK"
+	$modeOfOperationNr = $null
+	$modeOfOperationNr = 4
+	$auto = 1
+	Logging ""
+}
+
+If ($auto -eq 0) {
+	### Display And Selecting The Mode Of Operation
+	Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
+	Logging "SELECT THE MODE OF OPERATION..." "HEADER"
+	Logging ""
+	Logging "Which mode of operation do you want to execute?"
+	Logging ""
+	Logging " - 1 - Informational Mode (No Changes At All)"
+	Logging ""
+	Logging " - 2 - Simulation Mode (Temporary Canary Object Created, No Password Reset!)"
+	Logging ""
+	Logging " - 3 - Simulation Mode - Use KrbTgt TEST/BOGUS Accounts (Password Will Be Reset Once!)"
+	Logging ""
+	Logging " - 4 - Real Reset Mode - Use KrbTgt PROD/REAL Accounts (Password Will Be Reset Once!)"
+	Logging ""
+	Logging ""
+	Logging " - 8 - Create TEST KrbTgt Accounts"
+	Logging " - 9 - Cleanup TEST KrbTgt Accounts"
+	Logging ""
+	Logging ""
+	Logging " - 0 - Exit Script"
+	Logging ""
+	Logging "Please specify the mode of operation: " "ACTION-NO-NEW-LINE"
+	$modeOfOperationNr = Read-Host
+	Logging ""
+
+}
 
 # If Anything Else Than The Allowed/Available Non-Zero Modes, Abort The Script
 If (($modeOfOperationNr -ne 1 -And $modeOfOperationNr -ne 2 -And $modeOfOperationNr -ne 3 -And $modeOfOperationNr -ne 4 -And $modeOfOperationNr -ne 8 -And $modeOfOperationNr -ne 9) -Or $modeOfOperationNr -notmatch "^[\d\.]+$") {
@@ -1610,10 +1669,16 @@ $currentADDomainOfLocalComputer = $(Get-WmiObject -Class Win32_ComputerSystem).D
 $currentADForestOfLocalComputer = $null
 $currentADForestOfLocalComputer = (Get-ADDomain $currentADDomainOfLocalComputer).Forest
 
+If ($auto -eq 0) {
 # Ask Which AD Forest To Target
 Logging "For the AD forest to be targeted, please provide the FQDN or press [ENTER] for the current AD forest: " "ACTION-NO-NEW-LINE"
 $targetedADforestFQDN = $null
 $targetedADforestFQDN = Read-Host
+}
+If ($auto -eq 1) {
+# If Auto Mode is Being Used, Then Use The AD Domain Of The Local Computer
+$targetedADforestFQDN = $currentADForestOfLocalComputer
+}
 
 # If No FQDN Of An AD Domain Is Specified, Then Use The AD Domain Of The Local Computer
 If ($targetedADforestFQDN -eq "" -Or $null -eq $targetedADforestFQDN) {
@@ -1885,10 +1950,16 @@ Logging "$($tableOfADDomainsInADForest | Format-Table | Out-String)"
 Logging "  --> Found [$nrOfDomainsInForest] AD Domain(s) in the AD forest '$rootADDomainInADForest'..." "REMARK"
 Logging ""
 
+If ($auto -eq 0) {
 # Ask Which AD Domain To Target From The Previously Presented List
 Logging "For the AD domain to be targeted, please provide the FQDN or press [ENTER] for the current AD domain: " "ACTION-NO-NEW-LINE"
 $targetedADdomainFQDN = $null
 $targetedADdomainFQDN = Read-Host
+}
+If ($auto -eq 1) {
+# If Auto Mode is Being Used, Then Use The AD Domain Of The Local Computer
+$targetedADdomainFQDN = $currentADDomainOfLocalComputer
+}
 
 # If No FQDN Of An AD Domain Is Specified, Then Use The AD Domain Of The Local Computer
 If ($targetedADdomainFQDN -eq "" -Or $null -eq $targetedADdomainFQDN) {
@@ -1941,7 +2012,7 @@ If ($localADforest -eq $true) {
 	$domainAdminRole = (New-Object System.Security.Principal.SecurityIdentifier($targetedDomainObjectSID + "-" + $domainAdminRID)).Translate([System.Security.Principal.NTAccount]).Value
 	$userIsDomainAdmin = $null
 	$userIsDomainAdmin = testAdminRole $domainAdminRole
-	If (!$userIsDomainAdmin) {
+	If (!$userIsDomainAdmin -or $auto -ne 1) {
 		# The User Account Running This Script Has Been Validated Not Being A Member Of The Domain Admins Group Of The Targeted AD Domain
 		# Validate The User Account Running This Script Is A Member Of The Enterprise Admins Group Of The AD Forest
 		$forestRootDomainObjectSID = ($tableOfADDomainsInADForest | Where-Object{$_.IsRootDomain -eq "TRUE"}).DomainSID
@@ -1949,7 +2020,7 @@ If ($localADforest -eq $true) {
 		$enterpriseAdminRole = (New-Object System.Security.Principal.SecurityIdentifier($forestRootDomainObjectSID + "-" + $enterpriseAdminRID)).Translate([System.Security.Principal.NTAccount]).Value
 		$userIsEnterpriseAdmin = $null
 		$userIsEnterpriseAdmin = testAdminRole $enterpriseAdminRole
-		If (!$userIsEnterpriseAdmin) {
+		If (!$userIsEnterpriseAdmin -or $auto -ne 1) {
 			# The User Account Running This Script Has Been Validated Not Being A Member Of The Enterprise Admins Group Of The AD Forest
 			Logging "The user account '$adRunningUserAccount' IS NOT running with Domain/Enterprise Administrator equivalent permissions in the AD Domain '$targetedADdomainFQDN'!..." "ERROR"
 			Logging "The user account '$adRunningUserAccount' IS NOT a member of '$domainAdminRole' and NOT a member of '$enterpriseAdminRole'!..." "ERROR"
@@ -2682,28 +2753,41 @@ Logging "  --> Found [$nrOfUnReachableRODCs] UnReachable RODC(s) In AD Domain...
 Logging "  --> Found [$nrOfUnDetermined] Undetermined RODC(s) In AD Domain..." "REMARK"
 Logging "" "REMARK"
 
-### Mode 2 And 3 And 4 Only - Selecting The KrbTgt Account To Target And Scope If Applicable (Only Applicable To RODCs)
-If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr -eq 4) {
-	Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
-	Logging "SELECT THE SCOPE OF THE KRBTGT ACCOUNT(S) TO TARGET..." "HEADER"
-	Logging ""
-	Logging "Which KrbTgt account do you want to target?"
-	Logging ""
-	Logging " - 1 - Scope of KrbTgt in use by all RWDCs in the AD Domain"
-	Logging ""
-	Logging " - 2 - Scope of KrbTgt in use by specific RODC - Single RODC in the AD Domain"
-	Logging ""
-	Logging " - 3 - Scope of KrbTgt in use by specific RODC - Multiple RODCs in the AD Domain"
-	Logging ""
-	Logging " - 4 - Scope of KrbTgt in use by specific RODC - All RODCs in the AD Domain"
-	Logging ""
-	Logging ""
-	Logging " - 0 - Exit Script"
-	Logging ""
-	Logging "Please specify the scope of KrbTgt Account to target: " "ACTION-NO-NEW-LINE"
-	$targetKrbTgtAccountNr = Read-Host
-	Logging ""
+If ($auto -eq 0) {
+	### Mode 2 And 3 And 4 Only - Selecting The KrbTgt Account To Target And Scope If Applicable (Only Applicable To RODCs)
+	If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr -eq 4) {
+		Logging "------------------------------------------------------------------------------------------------------------------------------------------------------" "HEADER"
+		Logging "SELECT THE SCOPE OF THE KRBTGT ACCOUNT(S) TO TARGET..." "HEADER"
+		Logging ""
+		Logging "Which KrbTgt account do you want to target?"
+		Logging ""
+		Logging " - 1 - Scope of KrbTgt in use by all RWDCs in the AD Domain"
+		Logging ""
+		Logging " - 2 - Scope of KrbTgt in use by specific RODC - Single RODC in the AD Domain"
+		Logging ""
+		Logging " - 3 - Scope of KrbTgt in use by specific RODC - Multiple RODCs in the AD Domain"
+		Logging ""
+		Logging " - 4 - Scope of KrbTgt in use by specific RODC - All RODCs in the AD Domain"
+		Logging ""
+		Logging ""
+		Logging " - 0 - Exit Script"
+		Logging ""
+		Logging "Please specify the scope of KrbTgt Account to target: " "ACTION-NO-NEW-LINE"
+		$targetKrbTgtAccountNr = Read-Host
+		Logging ""
+    }
+}
 	
+If ($auto -eq 1) {
+	If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr -eq 4) {
+		Logging ""
+		Logging "Setting Scope of KrbTgt in use by all RWDCs in the AD Domain"
+		Logging ""
+		$targetKrbTgtAccountNr = 1
+		Logging ""
+	}	
+}
+
 	# If Anything Else Than The Allowed/Available Non-Zero KrbTgt Accounts, Abort The Script
 	If (($targetKrbTgtAccountNr -ne 1 -And $targetKrbTgtAccountNr -ne 2 -And $targetKrbTgtAccountNr -ne 3 -And $targetKrbTgtAccountNr -ne 4) -Or $targetKrbTgtAccountNr -notmatch "^[\d\.]+$") {
 		Logging "  --> Chosen Scope KrbTgt Account Target: 0 - Exit Script..." "REMARK"
@@ -2756,7 +2840,6 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 		}
 		Logging ""
 	}
-}
 
 ### Mode 2/3 - Simulation Mode AND Mode 4 - Real Reset Mode
 If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr -eq 4) {
@@ -2774,11 +2857,19 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 		Logging ""
 	}
 	
+	If ($auto -eq 0) {
 	# Asking Confirmation To Continue Or Not
 	Logging "Do you really want to continue and execute 'Mode $modeOfOperationNr'? [CONTINUE | STOP]: " "ACTION-NO-NEW-LINE"
 	$continueOrStop = $null
 	$continueOrStop = Read-Host
+	}
 	
+	If ($auto -eq 1) {
+	# Proceeding with Continue because I am in auto mode
+	$continueOrStop = $null
+	$continueOrStop = "CONTINUE"
+	}
+		
 	# Any Confirmation Not Equal To CONTINUE Will Be Equal To STOP
 	If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 		$continueOrStop = "STOP"
@@ -2918,23 +3009,31 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 						# Allow The Password Reset To Occur Without Questions If The Expiration Date/Time Of N-1 Kerberos Tickets Is Earlier Than The Current Time
 						$okToReset = $True
 					} Else {
-						# Allow The Password Reset To Occur After Confirnation Only If The Expiration Date/Time Of N-1 Kerberos Tickets Is Equal Or Later Than The Current Time
-						Logging "  --> According To RWDC.....................: '$targetedADdomainSourceRWDCFQDN'"
-						Logging "  --> Previous Password Set Date/Time.......: '$(Get-Date $targetObjectToCheckPwdLastSet -f 'yyyy-MM-dd HH:mm:ss')'"
-						Logging "  --> Date/Time N-1 Kerberos Tickets........: '$(Get-Date $expirationTimeForNMinusOneKerbTickets -f 'yyyy-MM-dd HH:mm:ss')'"
-						Logging "  --> Date/Time Now.........................: '$(Get-Date $([DateTime]::Now) -f 'yyyy-MM-dd HH:mm:ss')'"
-						Logging "  --> Max TGT Lifetime (Hours)..............: '$targetedADdomainMaxTgtLifetimeHrs'"
-						Logging "  --> Max Clock Skew (Minutes)..............: '$targetedADdomainMaxClockSkewMins'"
-						Logging "  --> Originating RWDC Previous Change......: '$metadataObjectAttribPwdLastSetOrgRWDCFQDN'"
-						Logging "  --> Originating Time Previous Change......: '$metadataObjectAttribPwdLastSetOrgTime'"
-						Logging "  --> Current Version Of Attribute Value....: '$metadataObjectAttribPwdLastSetVersion'"
-						Logging ""
-						Logging "  --> Resetting KrbTgt Accnt Password Means.: 'MAJOR DOMAIN WIDE IMPACT'" "WARNING"
-						Logging "" "WARNING"
-						Logging "What do you want to do? [CONTINUE | STOP]: " "ACTION-NO-NEW-LINE"
-						$continueOrStop = $null
-						$continueOrStop = Read-Host
 						
+						If ($auto -eq 0) {
+							# Allow The Password Reset To Occur After Confirnation Only If The Expiration Date/Time Of N-1 Kerberos Tickets Is Equal Or Later Than The Current Time
+							Logging "  --> According To RWDC.....................: '$targetedADdomainSourceRWDCFQDN'"
+							Logging "  --> Previous Password Set Date/Time.......: '$(Get-Date $targetObjectToCheckPwdLastSet -f 'yyyy-MM-dd HH:mm:ss')'"
+							Logging "  --> Date/Time N-1 Kerberos Tickets........: '$(Get-Date $expirationTimeForNMinusOneKerbTickets -f 'yyyy-MM-dd HH:mm:ss')'"
+							Logging "  --> Date/Time Now.........................: '$(Get-Date $([DateTime]::Now) -f 'yyyy-MM-dd HH:mm:ss')'"
+							Logging "  --> Max TGT Lifetime (Hours)..............: '$targetedADdomainMaxTgtLifetimeHrs'"
+							Logging "  --> Max Clock Skew (Minutes)..............: '$targetedADdomainMaxClockSkewMins'"
+							Logging "  --> Originating RWDC Previous Change......: '$metadataObjectAttribPwdLastSetOrgRWDCFQDN'"
+							Logging "  --> Originating Time Previous Change......: '$metadataObjectAttribPwdLastSetOrgTime'"
+							Logging "  --> Current Version Of Attribute Value....: '$metadataObjectAttribPwdLastSetVersion'"
+							Logging ""
+							Logging "  --> Resetting KrbTgt Accnt Password Means.: 'MAJOR DOMAIN WIDE IMPACT'" "WARNING"
+							Logging "" "WARNING"
+							Logging "What do you want to do? [CONTINUE | STOP]: " "ACTION-NO-NEW-LINE"
+							$continueOrStop = $null
+							$continueOrStop = Read-Host
+						}
+						
+						If ($auto -eq 1) {
+							# Stop The Password Reset From Occuring since I am in auto mode and I cant see my feet
+							$continueOrStop = $null
+							$continueOrStop = "STOP"
+						}
 						# Any Confirmation Not Equal To CONTINUE Will Be Equal To STOP
 						If ($continueOrStop.ToUpper() -ne "CONTINUE") {
 							$continueOrStop = "STOP"
@@ -3251,23 +3350,31 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 								# Allow The Password Reset To Occur Without Questions If The Expiration Date/Time Of N-1 Kerberos Tickets Is Earlier Than The Current Time
 								$okToReset = $True
 							} Else {
-								# Allow The Password Reset To Occur After Confirnation Only If The Expiration Date/Time Of N-1 Kerberos Tickets Is Equal Or Later Than The Current Time
-								Logging "  --> According To RWDC.....................: '$targetedADdomainSourceRWDCFQDN'"
-								Logging "  --> Previous Password Set Date/Time.......: '$(Get-Date $targetObjectToCheckPwdLastSet -f 'yyyy-MM-dd HH:mm:ss')'"
-								Logging "  --> Date/Time N-1 Kerberos Tickets........: '$(Get-Date $expirationTimeForNMinusOneKerbTickets -f 'yyyy-MM-dd HH:mm:ss')'"
-								Logging "  --> Date/Time Now.........................: '$(Get-Date $([DateTime]::Now) -f 'yyyy-MM-dd HH:mm:ss')'"
-								Logging "  --> Max TGT Lifetime (Hours)..............: '$targetedADdomainMaxTgtLifetimeHrs'"
-								Logging "  --> Max Clock Skew (Minutes)..............: '$targetedADdomainMaxClockSkewMins'"
-								Logging "  --> Originating RWDC Previous Change......: '$metadataObjectAttribPwdLastSetOrgRWDCFQDN'"
-								Logging "  --> Originating Time Previous Change......: '$metadataObjectAttribPwdLastSetOrgTime'"
-								Logging "  --> Current Version Of Attribute Value....: '$metadataObjectAttribPwdLastSetVersion'"
-								Logging ""
-								Logging "  --> Resetting KrbTgt Accnt Password Means.: 'MAJOR IMPACT FOR RESOURCES SERVICED BY $rodcFQDNTarget' (Site: $rodcSiteTarget)" "WARNING"
-								Logging "" "WARNING"
-								Logging "What do you want to do? [CONTINUE | SKIP | STOP]: " "ACTION-NO-NEW-LINE"
-								$continueOrStop = $null
-								$continueOrStop = Read-Host
+								If ($auto -eq 0) {
+									# Allow The Password Reset To Occur After Confirnation Only If The Expiration Date/Time Of N-1 Kerberos Tickets Is Equal Or Later Than The Current Time
+									Logging "  --> According To RWDC.....................: '$targetedADdomainSourceRWDCFQDN'"
+									Logging "  --> Previous Password Set Date/Time.......: '$(Get-Date $targetObjectToCheckPwdLastSet -f 'yyyy-MM-dd HH:mm:ss')'"
+									Logging "  --> Date/Time N-1 Kerberos Tickets........: '$(Get-Date $expirationTimeForNMinusOneKerbTickets -f 'yyyy-MM-dd HH:mm:ss')'"
+									Logging "  --> Date/Time Now.........................: '$(Get-Date $([DateTime]::Now) -f 'yyyy-MM-dd HH:mm:ss')'"
+									Logging "  --> Max TGT Lifetime (Hours)..............: '$targetedADdomainMaxTgtLifetimeHrs'"
+									Logging "  --> Max Clock Skew (Minutes)..............: '$targetedADdomainMaxClockSkewMins'"
+									Logging "  --> Originating RWDC Previous Change......: '$metadataObjectAttribPwdLastSetOrgRWDCFQDN'"
+									Logging "  --> Originating Time Previous Change......: '$metadataObjectAttribPwdLastSetOrgTime'"
+									Logging "  --> Current Version Of Attribute Value....: '$metadataObjectAttribPwdLastSetVersion'"
+									Logging ""
+									Logging "  --> Resetting KrbTgt Accnt Password Means.: 'MAJOR IMPACT FOR RESOURCES SERVICED BY $rodcFQDNTarget' (Site: $rodcSiteTarget)" "WARNING"
+									Logging "" "WARNING"
+									Logging "What do you want to do? [CONTINUE | SKIP | STOP]: " "ACTION-NO-NEW-LINE"
+									$continueOrStop = $null
+									$continueOrStop = Read-Host
+								}
 								
+								If ($auto -eq 1) {
+								# Stop The Password Reset From Occuring since I am in auto mode and I cant see my feet
+									$continueOrStop = $null
+									$continueOrStop = "STOP"
+								}
+						
 								# Any Confirmation Not Equal To CONTINUE And Not Euqla To SKIP And Not Equal To STOP Will Be Equal To STOP
 								If ($continueOrStop.ToUpper() -ne "CONTINUE" -And $continueOrStop.ToUpper() -ne "SKIP" -And $continueOrStop.ToUpper() -ne "STOP") {
 									$continueOrStop = "STOP"
@@ -3464,19 +3571,26 @@ If ($modeOfOperationNr -eq 2 -Or $modeOfOperationNr -eq 3 -Or $modeOfOperationNr
 								# Allow The Password Reset To Occur Without Questions If The Expiration Date/Time Of N-1 Kerberos Tickets Is Earlier Than The Current Time
 								$okToReset = $True
 							} Else {
-								# Allow The Password Reset To Occur After Confirnation Only If The Expiration Date/Time Of N-1 Kerberos Tickets Is Equal Or Later Than The Current Time
-								Logging "  --> According To RWDC.....................: '$targetedADdomainSourceRWDCFQDN'"
-								Logging "  --> Previous Password Set Date/Time.......: '$(Get-Date $targetObjectToCheckPwdLastSet -f 'yyyy-MM-dd HH:mm:ss')'"
-								Logging "  --> Date/Time N-1 Kerberos Tickets........: '$(Get-Date $expirationTimeForNMinusOneKerbTickets -f 'yyyy-MM-dd HH:mm:ss')'"
-								Logging "  --> Date/Time Now.........................: '$(Get-Date $([DateTime]::Now) -f 'yyyy-MM-dd HH:mm:ss')'"
-								Logging "  --> Max TGT Lifetime (Hours)..............: '$targetedADdomainMaxTgtLifetimeHrs'"
-								Logging "  --> Max Clock Skew (Minutes)..............: '$targetedADdomainMaxClockSkewMins'"
-								Logging ""
-								Logging "  --> Resetting KrbTgt Accnt Password Means.: 'MAJOR IMPACT FOR RESOURCES SERVICED BY $rodcFQDNTarget' (Site: $rodcSiteTarget)" "WARNING"
-								Logging "" "WARNING"
-								Logging "What do you want to do? [CONTINUE | SKIP | STOP]: " "ACTION-NO-NEW-LINE"
-								$continueOrStop = $null
-								$continueOrStop = Read-Host
+								If ($auto -eq 0) {
+									# Allow The Password Reset To Occur After Confirnation Only If The Expiration Date/Time Of N-1 Kerberos Tickets Is Equal Or Later Than The Current Time
+									Logging "  --> According To RWDC.....................: '$targetedADdomainSourceRWDCFQDN'"
+									Logging "  --> Previous Password Set Date/Time.......: '$(Get-Date $targetObjectToCheckPwdLastSet -f 'yyyy-MM-dd HH:mm:ss')'"
+									Logging "  --> Date/Time N-1 Kerberos Tickets........: '$(Get-Date $expirationTimeForNMinusOneKerbTickets -f 'yyyy-MM-dd HH:mm:ss')'"
+									Logging "  --> Date/Time Now.........................: '$(Get-Date $([DateTime]::Now) -f 'yyyy-MM-dd HH:mm:ss')'"
+									Logging "  --> Max TGT Lifetime (Hours)..............: '$targetedADdomainMaxTgtLifetimeHrs'"
+									Logging "  --> Max Clock Skew (Minutes)..............: '$targetedADdomainMaxClockSkewMins'"
+									Logging ""
+									Logging "  --> Resetting KrbTgt Accnt Password Means.: 'MAJOR IMPACT FOR RESOURCES SERVICED BY $rodcFQDNTarget' (Site: $rodcSiteTarget)" "WARNING"
+									Logging "" "WARNING"
+									Logging "What do you want to do? [CONTINUE | SKIP | STOP]: " "ACTION-NO-NEW-LINE"
+									$continueOrStop = $null
+									$continueOrStop = Read-Host
+								}
+								
+								If ($auto -eq 1) {
+									$continueOrStop = $null
+									$continueOrStop = "STOP"
+								}
 								
 								# Any Confirmation Not Equal To CONTINUE And Not Equal To SKIP And Not Equal STOP Will Be Equal To STOP
 								If ($continueOrStop.ToUpper() -ne "CONTINUE" -And $continueOrStop.ToUpper() -ne "SKIP" -And $continueOrStop.ToUpper() -ne "STOP") {
